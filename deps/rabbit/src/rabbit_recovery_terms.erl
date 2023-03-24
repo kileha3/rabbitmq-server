@@ -77,6 +77,7 @@ read(VHost, DirBaseName) ->
 clear(VHost) ->
     try
         _ = dets:delete_all_objects(VHost),
+        % _ = ets:delete_all_objects(recovery),
         ok
     %% see start/1
     catch _:badarg ->
@@ -124,7 +125,10 @@ open_table(VHost, RetriesLeft) ->
             {ram_file,  false},
             {auto_save, infinity}],
     case dets:open_file(VHost, Opts) of
-        {ok, _}        -> ok;
+        {ok, _}        ->
+            ets:new(recovery, [named_table, set]),
+            dets:to_ets(VHost, recovery),
+            ok;
         {error, Error} ->
           case RetriesLeft of
                 0 ->

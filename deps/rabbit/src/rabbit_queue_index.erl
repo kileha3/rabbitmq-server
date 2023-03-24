@@ -541,10 +541,11 @@ start(VHost, DurableQueueNames) ->
         lists:foldl(
           fun(QName, {RecoveryTerms, ValidDirectories}) ->
                   DirName = queue_name_to_dir_name(QName),
-                  RecoveryInfo = case rabbit_recovery_terms:read(VHost, DirName) of
-                                     {error, _}  -> non_clean_shutdown;
-                                     {ok, Terms} -> Terms
-                                 end,
+                  [{_, RecoveryInfo}] = ets:lookup(recovery, DirName),
+                  % RecoveryInfo = case ets:lookup(recovery, DirName) of
+                  %                    {error, _}  -> non_clean_shutdown;
+                  %                    {ok, Terms} -> Terms
+                  %                end,
                   {[RecoveryInfo | RecoveryTerms],
                    sets:add_element(DirName, ValidDirectories)}
           end, {[], sets:new()}, DurableQueueNames),
