@@ -77,6 +77,7 @@ read(VHost, DirBaseName) ->
 clear(VHost) ->
     try
         _ = dets:delete_all_objects(VHost),
+        gen_server:cast(?MODULE, {reopen_for_writes, VHost}),
         ok
     %% see start/1
     catch _:badarg ->
@@ -87,17 +88,21 @@ clear(VHost) ->
     flush(VHost).
 
 start_link(VHost) ->
-    gen_server:start_link(?MODULE, [VHost], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [VHost], []).
 
 %%----------------------------------------------------------------------------
 
 init([VHost]) ->
     process_flag(trap_exit, true),
-    _ = open_table(VHost),
+    _ = open_table(VHost, true),
     {ok, VHost}.
 
 handle_call(Msg, _, State) -> {stop, {unexpected_call, Msg}, State}.
 
+handle_cast({reopen_for_writes, VHost}, State) ->
+    close_table(VHost),
+    open_table(VHost, false),
+    {noreply, State};
 handle_cast(Msg, State) -> {stop, {unexpected_cast, Msg}, State}.
 
 handle_info(_Info, State) -> {noreply, State}.
@@ -110,18 +115,18 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%----------------------------------------------------------------------------
 
--spec open_table(vhost:name()) -> rabbit_types:ok_or_error(any()).
+-spec open_table(vhost:name(), boolean()) -> rabbit_types:ok_or_error(any()).
 
-open_table(VHost) ->
-    open_table(VHost, 10).
+open_table(VHost, RamFile) ->
+    open_table(VHost, RamFile, 10).
 
--spec open_table(vhost:name(), non_neg_integer()) -> rabbit_types:ok_or_error(any()).
+-spec open_table(vhost:name(), boolean(), non_neg_integer()) -> rabbit_types:ok_or_error(any()).
 
-open_table(VHost, RetriesLeft) ->
+open_table(VHost, RamFile, RetriesLeft) ->
     VHostDir = rabbit_vhost:msg_store_dir_path(VHost),
     File = filename:join(VHostDir, "recovery.dets"),
     Opts = [{file,      File},
-            {ram_file,  true},
+            {ram_file,  RamFile},
             {auto_save, infinity}],
     case dets:open_file(VHost, Opts) of
         {ok, _}        -> ok;
@@ -136,7 +141,7 @@ open_table(VHost, RetriesLeft) ->
                     rabbit_log:warning("Failed to open a recovery terms DETS file at ~tp. Will delete it and retry in ~tp ms (~tp retries left)",
                                        [File, DelayInMs, RetriesLeft]),
                     timer:sleep(DelayInMs),
-                    open_table(VHost, RetriesLeft - 1)
+                    open_table(VHost, RamFile, RetriesLeft - 1)
           end
     end.
 
