@@ -114,11 +114,13 @@
 
 -spec init(rabbit_amqqueue:name()) -> state().
 
-init(#resource{ virtual_host = VHost } = Name) ->
+init(#resource{ virtual_host = VHost, name = QName } = Name) ->
     ?DEBUG("~0p", [Name]),
     VHostDir = rabbit_vhost:msg_store_dir_path(VHost),
-    Dir = rabbit_classic_queue_index_v2:queue_dir(VHostDir, Name),
-    #qs{dir = rabbit_file:filename_to_binary(Dir)}.
+    <<Num:128>> = erlang:md5(<<"queue", VHost/binary, QName/binary>>),
+    QDir = list_to_binary(rabbit_misc:format("~.36B", [Num])),
+    Dir = <<VHostDir/binary, "/queues/", QDir/binary>>,
+    #qs{dir = Dir}.
 
 -spec terminate(State) -> State when State::state().
 

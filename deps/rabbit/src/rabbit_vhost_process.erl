@@ -39,6 +39,7 @@ init([VHost]) ->
     process_flag(trap_exit, true),
     rabbit_log:debug("Recovering data for VHost ~ts", [VHost]),
     try
+        persistent_term:put({vhost, VHost}, rabbit_vhost:msg_store_dir_path_init(VHost)),
         %% Recover the vhost data and save it to vhost registry.
         ok = rabbit_vhost:recover(VHost),
         rabbit_vhost_sup_sup:save_vhost_process(VHost, self()),

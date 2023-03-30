@@ -338,7 +338,9 @@ filename_to_binary(Name) when is_list(Name) ->
             Bin;
         Other ->
             erlang:error(Other)
-    end.
+    end;
+filename_to_binary(Name) when is_binary(Name) ->
+    Name.
 
 -spec binary_to_filename(binary()) ->
     file:filename().

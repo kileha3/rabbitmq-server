@@ -1009,7 +1009,7 @@ terminate(_Reason, State = #msstate { index_state         = IndexState,
                               State2
              end,
     State3 = close_all_handles(State1),
-    case store_file_summary(FileSummaryEts, Dir) of
+    case store_file_summary(FileSummaryEts, binary_to_list(Dir)) of
         ok           -> ok;
         {error, FSErr} ->
             rabbit_log:error("Unable to store file summary"
@@ -1550,7 +1550,7 @@ filename_to_num(FileName) -> list_to_integer(filename:rootname(FileName)).
 
 list_sorted_filenames(Dir, Ext) ->
     lists:sort(fun (A, B) -> filename_to_num(A) < filename_to_num(B) end,
-               filelib:wildcard("*" ++ Ext, Dir)).
+               filelib:wildcard("*" ++ Ext, binary_to_list(Dir))).
 
 %%----------------------------------------------------------------------------
 %% index
@@ -1637,10 +1637,10 @@ recover_index_and_client_refs(IndexModule, true, ClientRefs, Dir, Name) ->
     end.
 
 store_recovery_terms(Terms, Dir) ->
-    rabbit_file:write_term_file(filename:join(Dir, ?CLEAN_FILENAME), Terms).
+    ok = rabbit_file:write_term_file(filename:join(binary_to_list(Dir), ?CLEAN_FILENAME), Terms).
 
 read_recovery_terms(Dir) ->
-    Path = filename:join(Dir, ?CLEAN_FILENAME),
+    Path = filename:join(binary_to_list(Dir), ?CLEAN_FILENAME),
     case rabbit_file:read_term_file(Path) of
         {ok, Terms}    -> case file:delete(Path) of
                               ok             -> {true,  Terms};
@@ -1664,7 +1664,7 @@ recover_file_summary(false, _Dir) ->
     {false, ets:new(rabbit_msg_store_file_summary,
                     [ordered_set, public, {keypos, #file_summary.file}])};
 recover_file_summary(true, Dir) ->
-    Path = filename:join(Dir, ?FILE_SUMMARY_FILENAME),
+    Path = filename:join(binary_to_list(Dir), ?FILE_SUMMARY_FILENAME),
     case ets:file2tab(Path) of
         {ok, Tid}       -> ok = file:delete(Path),
                            {true, Tid};

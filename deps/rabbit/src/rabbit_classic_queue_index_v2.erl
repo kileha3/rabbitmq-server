@@ -204,7 +204,8 @@ init1(Name, Dir, OnSyncFun, OnSyncMsgFun) ->
     }.
 
 ensure_queue_name_stub_file(#resource{virtual_host = VHost, name = QName}, Dir) ->
-    QueueNameFile = filename:join(Dir, ?QUEUE_NAME_STUB_FILE),
+    QueueNameFile = <<Dir/binary, "/", ?QUEUE_NAME_STUB_FILE>>,
+    % QueueNameFile = filename:join(Dir, ?QUEUE_NAME_STUB_FILE),
     ok = write_file_and_ensure_dir(QueueNameFile, <<"VHOST: ", VHost/binary, "\n",
                                           "QUEUE: ", QName/binary, "\n",
                                           "INDEX: v2\n">>).
@@ -1270,8 +1271,9 @@ erase_index_dir(Dir) ->
 queue_dir(VHostDir, QueueName) ->
     %% Queue directory is
     %% {node_database_dir}/msg_stores/vhosts/{vhost}/queues/{queue}
-    QueueDir = queue_name_to_dir_name(QueueName),
-    filename:join([VHostDir, "queues", QueueDir]).
+    QueueDir = list_to_binary(queue_name_to_dir_name(QueueName)),
+    <<VHostDir/binary, "/queues/", QueueDir/binary>>.
+    % filename:join([VHostDir, "queues", QueueDir]).
 
 queue_name_to_dir_name(#resource { kind = queue,
                                    virtual_host = VHost,

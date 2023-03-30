@@ -29,8 +29,8 @@ new(Dir) ->
     #state { table = Tid, dir = rabbit_file:filename_to_binary(Dir) }.
 
 recover(Dir) ->
-    Path = filename:join(Dir, ?FILENAME),
-    case ets:file2tab(Path) of
+    Path = <<Dir/binary, "/", ?FILENAME>>,
+    case ets:file2tab(binary_to_list(Path)) of
         {ok, Tid}  -> _ = file:delete(Path),
                       {ok, #state { table = Tid, dir = rabbit_file:filename_to_binary(Dir) }};
         Error      -> Error

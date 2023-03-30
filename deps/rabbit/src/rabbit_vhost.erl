@@ -18,7 +18,7 @@
 -export([parse_tags/1, update_tags/3]).
 -export([lookup/1, default_name/0]).
 -export([info/1, info/2, info_all/0, info_all/1, info_all/2, info_all/3]).
--export([dir/1, msg_store_dir_path/1, msg_store_dir_wildcard/0, config_file_path/1, ensure_config_file/1]).
+-export([dir/1, msg_store_dir_path/1, msg_store_dir_path_init/1, msg_store_dir_wildcard/0, config_file_path/1, ensure_config_file/1]).
 -export([delete_storage/1]).
 -export([vhost_down/1]).
 -export([put_vhost/5,
@@ -521,8 +521,14 @@ dir(Vhost) ->
     rabbit_misc:format("~.36B", [Num]).
 
 msg_store_dir_path(VHost) ->
+    % <<"/home/mkuratczyk/data/rabbit@kura/mnesia/rabbit@kura/msg_stores/vhosts/628WB79CIFDYO9LJI6DKMI09L">>.
+    % EncodedName = list_to_binary(dir(VHost)),
+    persistent_term:get({vhost, VHost}).
+    % <<VHostDir/binary, EncodedName/binary>>.
+
+msg_store_dir_path_init(VHost) ->
     EncodedName = dir(VHost),
-    rabbit_data_coercion:to_list(filename:join([msg_store_dir_base(), EncodedName])).
+    list_to_binary(rabbit_data_coercion:to_list(filename:join([msg_store_dir_base(), EncodedName]))).
 
 msg_store_dir_wildcard() ->
     rabbit_data_coercion:to_list(filename:join([msg_store_dir_base(), "*"])).
