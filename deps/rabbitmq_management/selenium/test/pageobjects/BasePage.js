@@ -20,9 +20,8 @@ module.exports = class BasePage {
 
   constructor (webdriver) {
     this.driver = webdriver
-    // this is another timeout (--timeout 10000) which is the maximum test execution time
-    this.timeout = parseInt(process.env.TIMEOUT) || 1000 // max time waiting to locate an element. Should be less that test timeout
-    this.polling = parseInt(process.env.POLLING) || 500 // how frequent selenium searches for an element
+    this.timeout = parseInt(process.env.SELENIUM_TIMEOUT) || 1000 // max time waiting to locate an element. Should be less that test timeout
+    this.polling = parseInt(process.env.SELENIUM_POLLING) || 500 // how frequent selenium searches for an element    
   }
 
   async isLoaded () {
