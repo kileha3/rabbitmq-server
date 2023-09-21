@@ -57,6 +57,7 @@
 -type milliseconds() :: non_neg_integer().
 
 -type address() :: inet:socket_address() | inet:hostname().
+-type plainCredentialsFunc() :: fun(()->{binary(), binary()}).
 
 -type encrypted_sasl() :: {plaintext, binary()} | {encrypted, binary()}.
 -type decrypted_sasl() :: none | anon | {plain, User :: binary(), Pwd :: binary()}.
@@ -457,7 +458,10 @@ send_sasl_init(State, {plain, User, Pass}) ->
     Response = <<0:8, User/binary, 0:8, Pass/binary>>,
     Frame = #'v1_0.sasl_init'{mechanism = {symbol, <<"PLAIN">>},
                               initial_response = {binary, Response}},
-    send(Frame, 1, State).
+    send(Frame, 1, State);
+send_sasl_init(State, {plain, PlainCredentialsFunc}) ->
+    {User, Pass} = PlainCredentialsFunc(),
+    send_sasl_init(State, {plain, User, Pass}).
 
 send(Record, FrameType, #state{socket = Socket}) ->
     Encoded = amqp10_framing:encode_bin(Record),
@@ -545,9 +549,15 @@ translate_err(#'v1_0.error'{condition = Cond, description = Desc}) ->
 amqp10_event(Evt) ->
     {amqp10_event, {connection, self(), Evt}}.
 
+<<<<<<< HEAD
 decrypted_sasl_to_bin({plain, _, _}) -> <<"PLAIN">>;
 decrypted_sasl_to_bin(anon) -> <<"ANONYMOUS">>;
 decrypted_sasl_to_bin(none) -> <<"ANONYMOUS">>.
+=======
+sasl_to_bin({plain, _}) -> <<"PLAIN">>;
+sasl_to_bin({plain, _, _}) -> <<"PLAIN">>;
+sasl_to_bin(anon) -> <<"ANONYMOUS">>.
+>>>>>>> Support dynamic plain sasl creds
 
 config_defaults() ->
     #{sasl => none,
