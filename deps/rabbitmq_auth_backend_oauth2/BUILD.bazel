@@ -50,6 +50,7 @@ rabbitmq_app(
         "@base64url//:erlang_app",
         "@cowlib//:erlang_app",
         "@jose//:erlang_app",
+        "//deps/oauth2_client:erlang_app",
     ],
 )
 
@@ -132,6 +133,7 @@ rabbitmq_integration_suite(
     ],
     runtime_deps = [
         "@emqtt//:erlang_app",
+        "//deps/oauth2_client:erlang_app",
     ],
 )
 

@@ -16,6 +16,7 @@
 -export([client_id/1, sub/1, client_id/2, sub/2]).
 
 -include_lib("jose/include/jose_jwk.hrl").
+-include_lib("oauth2_client/include/oauth2_client.hrl").
 
 -define(APP, rabbitmq_auth_backend_oauth2).
 
@@ -56,18 +57,33 @@ update_jwks_signing_keys() ->
     UaaEnv = application:get_env(?APP, key_config, []),
     case proplists:get_value(jwks_url, UaaEnv) of
         undefined ->
-            {error, no_jwks_url};
+          case proplists:get_value(oauth_provider_id, UaaEnv) of
+            undefined -> {error, no_jwks_url};
+            Id -> case oauth2_client:get_oauth_provider_with_jwks_uri(Id) of
+                    {error, _} = Error -> Error;
+                     #oauth_provider{jwks_uri = JwksUrl, ssl_options = SslOptions} ->
+                      rabbit_log:debug("Using jwks_url ~p from oauth_provider ~p to retrieve signing keys",
+                        [JwksUrl, Id]),
+                      retrieve_signing_keys(JwksUrl, UaaEnv, SslOptions)
+                  end
+          end;
         JwksUrl ->
-            rabbit_log:debug("Retrieving signing keys from ~ts", [JwksUrl]),
-            case uaa_jwks:get(JwksUrl) of
-                {ok, {_, _, JwksBody}} ->
-                    KeyList = maps:get(<<"keys">>, jose:decode(erlang:iolist_to_binary(JwksBody)), []),
-                    Keys = maps:from_list(lists:map(fun(Key) -> {maps:get(<<"kid">>, Key, undefined), {json, Key}} end, KeyList)),
-                    update_uaa_jwt_signing_keys(UaaEnv, Keys);
-                {error, _} = Err ->
-                    Err
-            end
+          rabbit_log:debug("Using configured jwks_url ~p to retrieve signing keys",[JwksUrl]),
+          retrieve_signing_keys(JwksUrl, UaaEnv, uaa_jwks:ssl_options())
     end.
+retrieve_signing_keys(JwksUrl, UaaEnv, SslOptions) ->
+  SigningKey = case SslOptions of
+    undefined -> uaa_jwks:get(JwksUrl);
+    _ -> uaa_jwks:get(JwksUrl, SslOptions)
+  end,
+  case SigningKey of
+      {ok, {_, _, JwksBody}} ->
+          KeyList = maps:get(<<"keys">>, jose:decode(erlang:iolist_to_binary(JwksBody)), []),
+          Keys = maps:from_list(lists:map(fun(Key) -> {maps:get(<<"kid">>, Key, undefined), {json, Key}} end, KeyList)),
+          update_uaa_jwt_signing_keys(UaaEnv, Keys);
+      {error, _} = Err ->
+          Err
+  end.
 
 -spec decode_and_verify(binary()) -> {boolean(), map()} | {error, term()}.
 decode_and_verify(Token) ->

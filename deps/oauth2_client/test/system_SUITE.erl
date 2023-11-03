@@ -10,7 +10,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("rabbit_common/include/rabbit.hrl").
 
--include("oauth2_client.hrl").
+-include_lib("oauth2_client.hrl").
 
 -compile(export_all).
 

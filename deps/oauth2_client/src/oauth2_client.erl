@@ -132,7 +132,7 @@ unlock(LockId) ->
       end
   end.
 
--spec get_oauth_provider_with_token_endpoint(oauth_provider_id()) -> oauth_provider() | {error, any()} | {error, any(), any()}.
+-spec get_oauth_provider_with_token_endpoint(oauth_provider_id()) -> oauth_provider() | {error, any()}.
 
 get_oauth_provider_with_token_endpoint(OAuth2ProviderId) ->
   Config = lookup_oauth_provider_config(OAuth2ProviderId),
@@ -153,7 +153,7 @@ get_oauth_provider_with_token_endpoint(OAuth2ProviderId) ->
     _ -> {ok, OAuthProvider}
   end.
 
--spec get_oauth_provider_with_jwks_uri(oauth_provider_id()) -> oauth_provider() | {error, any()} | {error, any(), any()}.
+-spec get_oauth_provider_with_jwks_uri(oauth_provider_id()) -> oauth_provider() | {error, any()}.
 
 get_oauth_provider_with_jwks_uri(OAuth2ProviderId) ->
   Config = lookup_oauth_provider_config(OAuth2ProviderId),
@@ -183,7 +183,7 @@ lookup_oauth_provider_config(OAuth2ProviderId) ->
     undefined -> {error, oauth_providers_not_found};
     {ok, MapOfProviders} when is_map(MapOfProviders) ->
         case maps:get(OAuth2ProviderId, MapOfProviders, undefined) of
-          undefined -> {error, oauth_provider_not_found, OAuth2ProviderId};
+          undefined -> {error, {oauth_provider_not_found, OAuth2ProviderId}};
           Value -> Value
         end;
     _ ->  {error, invalid_oauth_provider_configuration}
