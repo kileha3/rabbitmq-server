@@ -1,7 +1,9 @@
 -module(oauth2_client).
 -export([get_access_token/2,
         refresh_access_token/2,
-        get_openid_configuration/1,get_openid_configuration/2,get_openid_configuration/3]).
+        get_oauth_provider_with_jwks_uri/1,
+        get_oauth_provider_with_token_endpoint/1
+        ]).
 
 -include("oauth2_client.hrl").
 -define(APP, auth_aouth2).
@@ -11,7 +13,11 @@
 get_access_token(OAuth2ProviderId, Request) when is_binary(OAuth2ProviderId) ->
   rabbit_log:debug("get_access_token using OAuth2ProviderId:~p and client_id:~p",
     [OAuth2ProviderId, Request#access_token_request.client_id]),
-  get_access_token(lookup_oauth_provider_with_token_endpoint(OAuth2ProviderId), Request);
+  case get_oauth_provider_with_token_endpoint(OAuth2ProviderId) of
+    {error, _Error } = Error0 -> Error0;
+    {error, _Error, _Arg } = Error1 -> Error1;
+    {ok, Provider} -> get_access_token(Provider, Request)
+  end;
 
 get_access_token(OAuthProvider, Request) ->
   rabbit_log:debug("get_access_token using OAuthProvider:~p and client_id:~p",
@@ -68,10 +74,6 @@ get_openid_configuration(IssuerURI, OpenIdConfigurationPath, TLSOptions) ->
 get_openid_configuration(IssuerURI, TLSOptions) ->
   get_openid_configuration(IssuerURI, ?DEFAULT_OPENID_CONFIGURATION_PATH, TLSOptions).
 
--spec get_openid_configuration(uri_string:uri_string()) -> {ok, oauth_provider()} | {error, term()}.
-get_openid_configuration(IssuerURI) ->
-  get_openid_configuration(IssuerURI, ?DEFAULT_OPENID_CONFIGURATION_PATH, []).
-
 update_oauth_provider_endpoints_configuration(OAuthProviderId, OAuthProvider) ->
   LockId = lock(),
   try do_update_oauth_provider_endpoints_configuration(OAuthProviderId, OAuthProvider) of
@@ -100,31 +102,43 @@ do_update_oauth_provider_endpoints_configuration(OAuthProviderId, OAuthProvider)
   rabbit_log:debug("Replacing oauth_providers  ~p", [ ModifiedOAuthProviders]),
   OAuthProvider.
 
+use_global_locks_on_all_nodes() ->
+  case application:get_env(rabbitmq_auth_backend_oauth2, use_global_locks, true) of
+    true -> {rabbit_nodes:list_running(), rabbit_nodes:lock_retries()};
+    _ -> {}
+  end.
+
 lock() ->
-    Nodes   = rabbit_nodes:list_running(),
-    Retries = rabbit_nodes:lock_retries(),
-    LockId = case global:set_lock({oauth2_config_lock, rabbitmq_auth_backend_oauth2}, Nodes, Retries) of
-        true  -> rabbitmq_auth_backend_oauth2;
-        false -> undefined
-    end,
-    LockId.
+    case use_global_locks_on_all_nodes() of
+      {} ->
+        case global:set_lock({oauth2_config_lock, rabbitmq_auth_backend_oauth2}) of
+          true  -> rabbitmq_auth_backend_oauth2;
+          false -> undefined
+        end;
+      {Nodes, Retries} ->
+        case global:set_lock({oauth2_config_lock, rabbitmq_auth_backend_oauth2}, Nodes, Retries) of
+          true  -> rabbitmq_auth_backend_oauth2;
+          false -> undefined
+        end
+    end.
 
 unlock(LockId) ->
-    Nodes = rabbit_nodes:list_running(),
-    case LockId of
-        undefined -> ok;
-        Value     ->
-          global:del_lock({oauth2_config_lock, Value}, Nodes)
-    end,
-    ok.
+  case LockId of
+    undefined -> ok;
+    Value ->
+      case use_global_locks_on_all_nodes() of
+        {} -> global:del_lock({oauth2_config_lock, Value});
+        {Nodes, _Retries} -> global:del_lock({oauth2_config_lock, Value}, Nodes)
+      end
+  end.
 
-%% HELPER functions
+-spec get_oauth_provider_with_token_endpoint(oauth_provider_id()) -> oauth_provider() | {error, any()} | {error, any(), any()}.
 
-lookup_oauth_provider_with_token_endpoint(OAuth2ProviderId) ->
+get_oauth_provider_with_token_endpoint(OAuth2ProviderId) ->
   Config = lookup_oauth_provider_config(OAuth2ProviderId),
   rabbit_log:debug("Found oauth_provider configuration ~p", [Config]),
   OAuthProvider = case Config of
-    {error,_} = Error -> throw(Error);
+    {error,_} = Error -> Error;
     _ -> map_to_oauth_provider(Config)
   end,
   rabbit_log:debug("Resolved oauth_provider ~p", [OAuthProvider]),
@@ -132,21 +146,44 @@ lookup_oauth_provider_with_token_endpoint(OAuth2ProviderId) ->
     undefined -> case OAuthProvider#oauth_provider.issuer of
                   undefined -> {error, invalid_oauth_provider_config};
                   Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
-                              {ok, OauthProvider} -> update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider);
+                              {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
                               {error, _} = Error2 -> Error2
                             end
                 end;
-    _ -> OAuthProvider
+    _ -> {ok, OAuthProvider}
   end.
+
+-spec get_oauth_provider_with_jwks_uri(oauth_provider_id()) -> oauth_provider() | {error, any()} | {error, any(), any()}.
+
+get_oauth_provider_with_jwks_uri(OAuth2ProviderId) ->
+  Config = lookup_oauth_provider_config(OAuth2ProviderId),
+  rabbit_log:debug("Found oauth_provider configuration ~p", [Config]),
+  OAuthProvider = case Config of
+    {error,_} = Error -> Error;
+    _ -> map_to_oauth_provider(Config)
+  end,
+  rabbit_log:debug("Resolved oauth_provider ~p", [OAuthProvider]),
+  case OAuthProvider#oauth_provider.jwks_uri of
+    undefined -> case OAuthProvider#oauth_provider.issuer of
+                  undefined -> {error, invalid_oauth_provider_config};
+                  Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
+                              {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
+                              {error, _} = Error2 -> Error2
+                            end
+                end;
+    _ -> {ok, OAuthProvider}
+  end.
+
+%% HELPER functions
 
 
 
 lookup_oauth_provider_config(OAuth2ProviderId) ->
   case application:get_env(rabbitmq_auth_backend_oauth2, oauth_providers) of
-    undefined -> {error, oauth_provider_not_found};
+    undefined -> {error, oauth_providers_not_found};
     {ok, MapOfProviders} when is_map(MapOfProviders) ->
         case maps:get(OAuth2ProviderId, MapOfProviders, undefined) of
-          undefined -> {error, oauth_provider_not_found};
+          undefined -> {error, oauth_provider_not_found, OAuth2ProviderId};
           Value -> Value
         end;
     _ ->  {error, invalid_oauth_provider_configuration}

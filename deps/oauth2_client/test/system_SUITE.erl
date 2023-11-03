@@ -91,6 +91,22 @@
 																]}
 															]
 														}).
+-define(GET_OPENID_CONFIGURATION_WITH_SSL,
+														#{request => #{
+																method => <<"GET">>,
+																path => ?DEFAULT_OPENID_CONFIGURATION_PATH
+												 			},
+															response => [
+																{code, 200},
+																{content_type, ?CONTENT_JSON},
+																{payload, [
+																	{issuer, <<"https://localhost:8000">>},
+																	{authorization_endpoint, <<"https://localhost:8000/authorize">>},
+																	{token_endpoint, <<"https://localhost:8000/token">>},
+																	{jwks_uri, <<"https://localhost:8000/jwks_uri">>}
+																]}
+															]
+														}).
 -define(GRANTS_REFRESH_TOKEN,
 														#{request => #{
 																method => <<"POST">>,
@@ -113,9 +129,9 @@
 
 all() ->
     [
-      {group, http_up},
-			{group, http_down},
-      {group, https}
+      {group, http_up}
+			,{group, http_down}
+      ,{group, https}
     ].
 
 groups() ->
@@ -125,7 +141,8 @@ groups() ->
                   denies_access_token,
                   auth_server_error,
                   non_json_payload,
-									get_openid_configuration,
+									get_oauth_provider_with_jwks_uri,
+									get_oauth_provider_with_token_endpoint,
 									grants_refresh_token,
 									grants_access_token_using_oauth_provider_id
 
@@ -135,7 +152,9 @@ groups() ->
 								 ]},
      {https, [], [
 		 							grants_access_token_with_ssl,
-                  ssl_connection_error
+                  ssl_connection_error,
+									get_oauth_provider_with_jwks_uri_via_ssl,
+									get_oauth_provider_with_token_endpoint_via_ssl
                  ]}
     ].
 
@@ -146,7 +165,10 @@ init_per_suite(Config) ->
 			{non_json_payload, ?NON_JSON_PAYLOAD},
 			{grants_access_token_with_ssl, ?GRANT_ACCESS_TOKEN},
 			{ssl_connection_error, ?GRANT_ACCESS_TOKEN},
-			{get_openid_configuration, ?GET_OPENID_CONFIGURATION},
+			{get_oauth_provider_with_jwks_uri, ?GET_OPENID_CONFIGURATION},
+			{get_oauth_provider_with_token_endpoint, ?GET_OPENID_CONFIGURATION},
+			{get_oauth_provider_with_jwks_uri_via_ssl, ?GET_OPENID_CONFIGURATION_WITH_SSL},
+			{get_oauth_provider_with_token_endpoint_via_ssl, ?GET_OPENID_CONFIGURATION_WITH_SSL},
 			{grants_refresh_token, ?GRANTS_REFRESH_TOKEN},
 			{grants_access_token_using_oauth_provider_id, ?GRANT_ACCESS_TOKEN}
 
@@ -189,6 +211,7 @@ init_per_testcase(TestCase, Config) ->
 	OAuthProvider = ?config(oauth_provider, Config),
 	OAuthProviders = #{ ?config(oauth_provider_id, Config) => oauth_provider_to_proplist(OAuthProvider) },
 	application:set_env(rabbitmq_auth_backend_oauth2, oauth_providers, OAuthProviders),
+	application:set_env(rabbitmq_auth_backend_oauth2, use_global_locks, false),
 
 	case ?config(group, Config) of
 		http_up ->
@@ -296,18 +319,45 @@ ssl_connection_error(Config) ->
 	{error, {failed_connect, _} } = oauth2_client:get_access_token(
 		?config(oauth_provider_with_wrong_ca, Config), build_access_token_request(Parameters)).
 
-get_openid_configuration(Config) ->
+get_oauth_provider_with_token_endpoint(Config) ->
 	#{response := [ {code, 200}, {content_type, _CT}, {payload, JsonPayload}] }
-		= ?config(get_openid_configuration, Config),
+		= ?config(get_oauth_provider_with_token_endpoint, Config),
 
-	{ok, #oauth_provider{issuer = Issuer, token_endpoint = TokenEndPoint,
-		jwks_uri = JwksURI} } =
-		oauth2_client:get_openid_configuration(?config(issuer, Config)),
+ {ok, #oauth_provider{issuer = Issuer, token_endpoint = TokenEndPoint}} =
+		oauth2_client:get_oauth_provider_with_token_endpoint(?config(oauth_provider_id, Config)),
+
+	?assertEqual(proplists:get_value(issuer, JsonPayload), binary:list_to_bin(Issuer)),
+	?assertEqual(proplists:get_value(token_endpoint, JsonPayload), binary:list_to_bin(TokenEndPoint)).
+
+get_oauth_provider_with_token_endpoint_via_ssl(Config) ->
+	#{response := [ {code, 200}, {content_type, _CT}, {payload, JsonPayload}] }
+		= ?config(get_oauth_provider_with_token_endpoint_via_ssl, Config),
+
+ {ok, #oauth_provider{issuer = Issuer, token_endpoint = TokenEndPoint}} =
+		oauth2_client:get_oauth_provider_with_token_endpoint(?config(oauth_provider_id, Config)),
+
+	?assertEqual(proplists:get_value(issuer, JsonPayload), binary:list_to_bin(Issuer)),
+	?assertEqual(proplists:get_value(token_endpoint, JsonPayload), binary:list_to_bin(TokenEndPoint)).
+
+get_oauth_provider_with_jwks_uri(Config) ->
+	#{response := [ {code, 200}, {content_type, _CT}, {payload, JsonPayload}] }
+		= ?config(get_oauth_provider_with_jwks_uri, Config),
+
+	{ok, #oauth_provider{issuer = Issuer, jwks_uri = JwksURI}} =
+		oauth2_client:get_oauth_provider_with_jwks_uri(?config(oauth_provider_id, Config)),
 
 	?assertEqual(proplists:get_value(issuer, JsonPayload), Issuer),
-	?assertEqual(proplists:get_value(token_endpoint, JsonPayload), TokenEndPoint),
-	?assertEqual(proplists:get_value(jwks_uri, JsonPayload), JwksURI).
+	?assertEqual(proplists:get_value(jwks_uri, JsonPayload),  JwksURI).
 
+get_oauth_provider_with_jwks_uri_via_ssl(Config) ->
+	#{response := [ {code, 200}, {content_type, _CT}, {payload, JsonPayload}] }
+		= ?config(get_oauth_provider_with_jwks_uri_via_ssl, Config),
+
+	{ok, #oauth_provider{issuer = Issuer, jwks_uri = JwksURI}} =
+		oauth2_client:get_oauth_provider_with_jwks_uri(?config(oauth_provider_id, Config)),
+
+	?assertEqual(proplists:get_value(issuer, JsonPayload), Issuer),
+	?assertEqual(proplists:get_value(jwks_uri, JsonPayload),  JwksURI).
 
 %%% HELPERS
 build_issuer(Scheme) ->
