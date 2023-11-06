@@ -83,6 +83,7 @@ eunit(
     compiled_suites = [
         ":test_jwks_http_app_beam",
         ":test_jwks_http_handler_beam",
+        ":test_openid_http_handler_beam",
         ":test_jwks_http_sup_beam",
         ":test_rabbit_auth_backend_oauth2_test_util_beam",
     ],
@@ -110,6 +111,7 @@ rabbitmq_integration_suite(
         "test/rabbit_auth_backend_oauth2_test_util.beam",
         "test/jwks_http_app.beam",
         "test/jwks_http_handler.beam",
+        "test/openid_http_handler.beam",
         "test/jwks_http_sup.beam",
     ],
     deps = [
@@ -117,6 +119,19 @@ rabbitmq_integration_suite(
     ],
 )
 
+rabbitmq_integration_suite(
+    name = "oauth_provider_SUITE",
+    additional_beam = [
+        "test/rabbit_auth_backend_oauth2_test_util.beam",
+        "test/jwks_http_app.beam",
+        "test/jwks_http_handler.beam",
+        "test/openid_http_handler.beam",
+        "test/jwks_http_sup.beam",
+    ],
+    deps = [
+        "@cowboy//:erlang_app",
+    ],
+)
 rabbitmq_suite(
     name = "scope_SUITE",
     size = "medium",

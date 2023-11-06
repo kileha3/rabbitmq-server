@@ -134,6 +134,15 @@ def test_suite_beam_files(name = "test_suite_beam_files"):
         deps = ["//deps/amqp_client:erlang_app"],
     )
     erlang_bytecode(
+        name = "oauth_provider_SUITE_beam_files",
+        testonly = True,
+        srcs = ["test/oauth_provider_SUITE.erl"],
+        outs = ["test/oauth_provider_SUITE.beam"],
+        app_name = "rabbitmq_auth_backend_oauth2",
+        erlc_opts = "//:test_erlc_opts",
+        deps = ["//deps/amqp_client:erlang_app", "//deps/oauth2_client:erlang_app"],
+    )
+    erlang_bytecode(
         name = "scope_SUITE_beam_files",
         testonly = True,
         srcs = ["test/scope_SUITE.erl"],
@@ -164,6 +173,15 @@ def test_suite_beam_files(name = "test_suite_beam_files"):
         testonly = True,
         srcs = ["test/jwks_http_handler.erl"],
         outs = ["test/jwks_http_handler.beam"],
+        app_name = "rabbitmq_auth_backend_oauth2",
+        erlc_opts = "//:test_erlc_opts",
+        deps = ["@cowboy//:erlang_app"],
+    )
+    erlang_bytecode(
+        name = "test_openid_http_handler_beam",
+        testonly = True,
+        srcs = ["test/openid_http_handler.erl"],
+        outs = ["test/openid_http_handler.beam"],
         app_name = "rabbitmq_auth_backend_oauth2",
         erlc_opts = "//:test_erlc_opts",
         deps = ["@cowboy//:erlang_app"],
