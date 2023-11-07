@@ -57,7 +57,6 @@
 -type milliseconds() :: non_neg_integer().
 
 -type address() :: inet:socket_address() | inet:hostname().
--type plainCredentialsFunc() :: fun(()->{binary(), binary()}).
 
 -type encrypted_sasl() :: {plaintext, binary()} | {encrypted, binary()}.
 -type decrypted_sasl() :: none | anon | {plain, User :: binary(), Pwd :: binary()}.
