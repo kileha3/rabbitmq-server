@@ -549,15 +549,9 @@ translate_err(#'v1_0.error'{condition = Cond, description = Desc}) ->
 amqp10_event(Evt) ->
     {amqp10_event, {connection, self(), Evt}}.
 
-<<<<<<< HEAD
 decrypted_sasl_to_bin({plain, _, _}) -> <<"PLAIN">>;
 decrypted_sasl_to_bin(anon) -> <<"ANONYMOUS">>;
 decrypted_sasl_to_bin(none) -> <<"ANONYMOUS">>.
-=======
-sasl_to_bin({plain, _}) -> <<"PLAIN">>;
-sasl_to_bin({plain, _, _}) -> <<"PLAIN">>;
-sasl_to_bin(anon) -> <<"ANONYMOUS">>.
->>>>>>> Support dynamic plain sasl creds
 
 config_defaults() ->
     #{sasl => none,
