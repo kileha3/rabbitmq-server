@@ -54,14 +54,16 @@ update_uaa_jwt_signing_keys(UaaEnv0, SigningKeys) ->
 
 -spec update_jwks_signing_keys() -> ok | {error, term()}.
 update_jwks_signing_keys() ->
+    rabbit_log:debug("update_jwks_signing_keys ..."),
     UaaEnv = application:get_env(?APP, key_config, []),
     case proplists:get_value(jwks_url, UaaEnv) of
         undefined ->
-          case proplists:get_value(oauth_provider_id, UaaEnv) of
+          case application:get_env(?APP, oauth_provider_id) of
             undefined -> {error, no_jwks_url};
-            Id -> case oauth2_client:get_oauth_provider_with_jwks_uri(Id) of
+            {ok, Id} -> rabbit_log:debug("using oauth_provider ~p to get jwks_uri ...", [Id]),
+                  case oauth2_client:get_oauth_provider_with_jwks_uri(Id) of
                     {error, _} = Error -> Error;
-                     #oauth_provider{jwks_uri = JwksUrl, ssl_options = SslOptions} ->
+                    {ok, #oauth_provider{jwks_uri = JwksUrl, ssl_options = SslOptions}} ->
                       rabbit_log:debug("Using jwks_url ~p from oauth_provider ~p to retrieve signing keys",
                         [JwksUrl, Id]),
                       retrieve_signing_keys(JwksUrl, UaaEnv, SslOptions)

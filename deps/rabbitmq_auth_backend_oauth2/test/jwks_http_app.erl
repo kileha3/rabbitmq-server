@@ -8,7 +8,7 @@ start(Port, CertsDir) ->
           [
            {'_', [
                   {"/jwks", jwks_http_handler, []},
-                  {"/", openid_http_handler, []}
+                  {"/.well-known/openid-configuration", openid_http_handler, []}
                  ]}
           ]
          ),

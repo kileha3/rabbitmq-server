@@ -132,7 +132,7 @@ unlock(LockId) ->
       end
   end.
 
--spec get_oauth_provider_with_token_endpoint(oauth_provider_id()) -> oauth_provider() | {error, any()}.
+-spec get_oauth_provider_with_token_endpoint(oauth_provider_id()) -> {ok, oauth_provider()} | {error, any()}.
 
 get_oauth_provider_with_token_endpoint(OAuth2ProviderId) ->
   Config = lookup_oauth_provider_config(OAuth2ProviderId),
@@ -142,20 +142,28 @@ get_oauth_provider_with_token_endpoint(OAuth2ProviderId) ->
     _ -> map_to_oauth_provider(Config)
   end,
   rabbit_log:debug("Resolved oauth_provider ~p", [OAuthProvider]),
-  case OAuthProvider#oauth_provider.token_endpoint of
+  Result = case OAuthProvider#oauth_provider.token_endpoint of
     undefined -> case OAuthProvider#oauth_provider.issuer of
-                  undefined -> {error, invalid_oauth_provider_config};
-                  Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
-                              {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
-                              {error, _} = Error2 -> Error2
-                            end
-                end;
+            undefined -> {error, invalid_oauth_provider_config};
+            Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
+                      {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
+                      {error, _} = Error2 -> Error2
+                    end
+          end;
     _ -> {ok, OAuthProvider}
+  end,
+  case Result of
+    {ok, Provider} ->
+      case Provider#oauth_provider.token_endpoint of
+        undefined -> {error, {missing_attribute, token_endpoint}};
+        _ -> Result
+      end;
+    _ -> Result
   end.
 
--spec get_oauth_provider_with_jwks_uri(oauth_provider_id()) -> oauth_provider() | {error, any()}.
-
+-spec get_oauth_provider_with_jwks_uri(oauth_provider_id()) -> {ok, oauth_provider()} | {error, any()}.
 get_oauth_provider_with_jwks_uri(OAuth2ProviderId) ->
+  rabbit_log:debug("get_oauth_provider_with_jwks_uri for ~p", [OAuth2ProviderId]),
   Config = lookup_oauth_provider_config(OAuth2ProviderId),
   rabbit_log:debug("Found oauth_provider configuration ~p", [Config]),
   OAuthProvider = case Config of
@@ -163,15 +171,23 @@ get_oauth_provider_with_jwks_uri(OAuth2ProviderId) ->
     _ -> map_to_oauth_provider(Config)
   end,
   rabbit_log:debug("Resolved oauth_provider ~p", [OAuthProvider]),
-  case OAuthProvider#oauth_provider.jwks_uri of
+  Result = case OAuthProvider#oauth_provider.jwks_uri of
     undefined -> case OAuthProvider#oauth_provider.issuer of
-                  undefined -> {error, invalid_oauth_provider_config};
-                  Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
-                              {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
-                              {error, _} = Error2 -> Error2
-                            end
-                end;
+          undefined -> {error, invalid_oauth_provider_config};
+          Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
+                      {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
+                      {error, _} = Error2 -> Error2
+                    end
+        end;
     _ -> {ok, OAuthProvider}
+  end,
+  case Result of
+    {ok, Provider} ->
+      case Provider#oauth_provider.jwks_uri of
+        undefined -> {error, {missing_attribute, jwks_uri}};
+        _ -> Result
+      end;
+    _ -> Result
   end.
 
 %% HELPER functions
@@ -265,34 +281,16 @@ map_to_unsuccessful_access_token_response(Json) ->
     error=maps:get(?RESPONSE_ERROR, Json),
     error_description=maps:get(?RESPONSE_ERROR_DESCRIPTION, Json, undefined)
   }.
-%% According to the specification https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata
-%% all 3 fields are required. token_endpoint is not required if using implicit flow but
-%% RabbitMQ supports client_credentials and authorization_code with PkCE, not implicit flow.
-validate_openid_configuration_payload(Map) ->
-  case maps:is_key(?RESPONSE_ISSUER, Map) of
-    false -> {error, missing_issuer_from_openid_configuration_payload};
-    true ->
-      case maps:is_key(?RESPONSE_TOKEN_ENDPOINT, Map) of
-        false -> {error, missing_token_endpoint_from_openid_configuration_payload};
-        true ->
-          case maps:is_key(?RESPONSE_JWKS_URI, Map) of
-            false -> {error, missing_jwks_uri_from_openid_configuration_payload};
-            true -> ok
-          end
-      end
-  end.
+
 
 map_to_oauth_provider(Map) when is_map(Map) ->
-  case validate_openid_configuration_payload(Map) of
-    ok ->
-      #oauth_provider{
-        issuer=maps:get(?RESPONSE_ISSUER, Map),
-        token_endpoint=maps:get(?RESPONSE_TOKEN_ENDPOINT, Map),
-        authorization_endpoint=maps:get(?RESPONSE_AUTHORIZATION_ENDPOINT, Map, undefined),
-        jwks_uri=maps:get(?RESPONSE_JWKS_URI, Map)
-      };
-    {error, _} = Error -> Error
-  end;
+  #oauth_provider{
+    issuer=maps:get(?RESPONSE_ISSUER, Map),
+    token_endpoint=maps:get(?RESPONSE_TOKEN_ENDPOINT, Map, undefined),
+    authorization_endpoint=maps:get(?RESPONSE_AUTHORIZATION_ENDPOINT, Map, undefined),
+    jwks_uri=maps:get(?RESPONSE_JWKS_URI, Map, undefined)
+  };
+
 map_to_oauth_provider(PropList) when is_list(PropList) ->
   #oauth_provider{
     issuer=proplists:get_value(issuer, PropList),
@@ -300,7 +298,7 @@ map_to_oauth_provider(PropList) when is_list(PropList) ->
     authorization_endpoint=proplists:get_value(authorization_endpoint, PropList, undefined),
     jwks_uri=proplists:get_value(jwks_uri, PropList, undefined),
     ssl_options=map_ssl_options(proplists:get_value(ssl_options, PropList, undefined))
-  }.
+    }.
 
 map_ssl_options(undefined) ->
   [{verify, verify_none},

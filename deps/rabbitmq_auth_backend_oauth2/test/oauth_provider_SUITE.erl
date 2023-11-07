@@ -42,6 +42,7 @@ groups() ->
 -define(UTIL_MOD, rabbit_auth_backend_oauth2_test_util).
 -define(RESOURCE_SERVER_ID, <<"rabbitmq">>).
 -define(RESOURCE_SERVER_TYPE, <<"rabbitmq">>).
+-define(OAUTH_PROVIDER_ID, <<"uaa">>).
 -define(EXTRA_SCOPES_SOURCE, <<"additional_rabbitmq_scopes">>).
 
 init_per_suite(Config) ->
@@ -86,6 +87,7 @@ preconfigure_node(Config) ->
                                       [rabbit, auth_backends, [rabbit_auth_backend_oauth2]]),
     ok = rabbit_ct_broker_helpers:rpc(Config, 0, application, set_env,
                                       [rabbitmq_auth_backend_oauth2, resource_server_id, ?RESOURCE_SERVER_ID]),
+
     Config.
 
 start_jwks_server(Config) ->
@@ -111,16 +113,18 @@ start_jwks_server(Config) ->
     ok = jwks_http_app:start(JwksServerPort, CertsDir),
 
     OauthProviders =
-      #{<<"uaa">> => [
-        {issuer, <<"https://localhost">>},
+      #{ ?OAUTH_PROVIDER_ID => [
+        {issuer, Issuer},
         {ssl_options, [
             {verify, verify_peer},
             {cacertfile, filename:join([CertsDir, "testca", "cacert.pem"])}
           ]}
       ]},
 
-    ok = rabbit_ct_broker_helpers:rpc(Config, 0, application, set_env, [rabbitmq_auth_backend_oauth2, oauth_providers, OauthProviders]),
-
+    ok = rabbit_ct_broker_helpers:rpc(Config, 0, application, set_env,
+                                [rabbitmq_auth_backend_oauth2, oauth_providers, OauthProviders]),
+    ok = rabbit_ct_broker_helpers:rpc(Config, 0, application, set_env,
+                                [rabbitmq_auth_backend_oauth2, oauth_provider_id, ?OAUTH_PROVIDER_ID]),
     rabbit_ct_helpers:set_config(Config,
                                  [
                                   {jwks_url, JwksUrl},
