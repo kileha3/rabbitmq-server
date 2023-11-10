@@ -62,7 +62,7 @@ update_jwks_signing_keys() ->
             undefined -> {error, no_jwks_url};
             {ok, Id} ->
                   rabbit_log:debug("using oauth_provider ~p to get jwks_uri ...", [Id]),
-                  case oauth2_client:get_oauth_provider_with_jwks_uri(Id) of
+                  case oauth2_client:get_oauth_provider(Id, [jwks_uri]) of
                     {error, _} = Error -> Error;
                     {ok, #oauth_provider{jwks_uri = JwksUrl, ssl_options = SslOptions}} ->
                       rabbit_log:debug("Using jwks_url ~p from oauth_provider ~p to retrieve signing keys",
