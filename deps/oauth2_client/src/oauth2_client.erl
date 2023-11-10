@@ -133,73 +133,87 @@ unlock(LockId) ->
   end.
 
 -spec get_oauth_provider_with_token_endpoint(oauth_provider_id()) -> {ok, oauth_provider()} | {error, any()}.
+get_oauth_provider_with_token_endpoint(OAuth2ProviderId) when is_list(OAuth2ProviderId) ->
+  get_oauth_provider_with_token_endpoint(list_to_binary(OAuth2ProviderId));
 
-get_oauth_provider_with_token_endpoint(OAuth2ProviderId) ->
-  Config = lookup_oauth_provider_config(OAuth2ProviderId),
-  rabbit_log:debug("Found oauth_provider configuration ~p", [Config]),
-  OAuthProvider = case Config of
-    {error,_} = Error -> Error;
-    _ -> map_to_oauth_provider(Config)
-  end,
-  rabbit_log:debug("Resolved oauth_provider ~p", [OAuthProvider]),
-  Result = case OAuthProvider#oauth_provider.token_endpoint of
-    undefined -> case OAuthProvider#oauth_provider.issuer of
-            undefined -> {error, invalid_oauth_provider_config};
-            Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
-                      {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
-                      {error, _} = Error2 -> Error2
-                    end
+get_oauth_provider_with_token_endpoint(OAuth2ProviderId) when is_binary(OAuth2ProviderId) ->
+  case lookup_oauth_provider_config(OAuth2ProviderId) of
+    {error, _} = Error0 ->
+    rabbit_log:warn("Failed to find oauth_provider ~p configuration due to ~p", [OAuth2ProviderId, Error0]),
+      Error0;
+    Config ->
+      rabbit_log:debug("Found oauth_provider configuration ~p", [Config]),
+      OAuthProvider = case Config of
+        {error,_} = Error -> Error;
+        _ -> map_to_oauth_provider(Config)
+      end,
+      rabbit_log:debug("Resolved oauth_provider ~p", [OAuthProvider]),
+      Result = case OAuthProvider#oauth_provider.token_endpoint of
+        undefined -> case OAuthProvider#oauth_provider.issuer of
+                undefined -> {error, invalid_oauth_provider_config};
+                Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
+                          {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
+                          {error, _} = Error2 -> Error2
+                        end
+              end;
+        _ -> {ok, OAuthProvider}
+      end,
+      case Result of
+        {ok, Provider} ->
+          case Provider#oauth_provider.token_endpoint of
+            undefined -> {error, {missing_attribute, token_endpoint}};
+            _ -> Result
           end;
-    _ -> {ok, OAuthProvider}
-  end,
-  case Result of
-    {ok, Provider} ->
-      case Provider#oauth_provider.token_endpoint of
-        undefined -> {error, {missing_attribute, token_endpoint}};
         _ -> Result
-      end;
-    _ -> Result
+      end
   end.
 
 -spec get_oauth_provider_with_jwks_uri(oauth_provider_id()) -> {ok, oauth_provider()} | {error, any()}.
-get_oauth_provider_with_jwks_uri(OAuth2ProviderId) ->
+get_oauth_provider_with_jwks_uri(OAuth2ProviderId) when is_list(OAuth2ProviderId) ->
+  get_oauth_provider_with_jwks_uri(list_to_binary(OAuth2ProviderId));
+get_oauth_provider_with_jwks_uri(OAuth2ProviderId) when is_binary(OAuth2ProviderId) ->
   rabbit_log:debug("get_oauth_provider_with_jwks_uri for ~p", [OAuth2ProviderId]),
-  Config = lookup_oauth_provider_config(OAuth2ProviderId),
-  rabbit_log:debug("Found oauth_provider configuration ~p", [Config]),
-  OAuthProvider = case Config of
-    {error,_} = Error -> Error;
-    _ -> map_to_oauth_provider(Config)
-  end,
-  rabbit_log:debug("Resolved oauth_provider ~p", [OAuthProvider]),
-  Result = case OAuthProvider#oauth_provider.jwks_uri of
-    undefined -> case OAuthProvider#oauth_provider.issuer of
-          undefined -> {error, invalid_oauth_provider_config};
-          Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
-                      {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
-                      {error, _} = Error2 -> Error2
-                    end
-        end;
-    _ -> {ok, OAuthProvider}
-  end,
-  case Result of
-    {ok, Provider} ->
-      case Provider#oauth_provider.jwks_uri of
-        undefined -> {error, {missing_attribute, jwks_uri}};
+  case lookup_oauth_provider_config(OAuth2ProviderId) of
+    {error, _} = Error0 ->
+      rabbit_log:warn("Failed to find oauth_provider ~p", [OAuth2ProviderId]),
+      Error0;
+    Config ->
+      rabbit_log:debug("Found oauth_provider configuration ~p", [Config]),
+      OAuthProvider = case Config of
+        {error,_} = Error -> Error;
+        _ -> map_to_oauth_provider(Config)
+      end,
+      rabbit_log:debug("Resolved oauth_provider ~p", [OAuthProvider]),
+      Result = case OAuthProvider#oauth_provider.jwks_uri of
+        undefined -> case OAuthProvider#oauth_provider.issuer of
+              undefined -> {error, invalid_oauth_provider_config};
+              Issuer -> case get_openid_configuration(Issuer, get_ssl_options_if_any(OAuthProvider)) of
+                          {ok, OauthProvider} -> {ok, update_oauth_provider_endpoints_configuration(OAuth2ProviderId, OauthProvider)};
+                          {error, _} = Error2 -> Error2
+                        end
+            end;
+        _ -> {ok, OAuthProvider}
+      end,
+      case Result of
+        {ok, Provider} ->
+          case Provider#oauth_provider.jwks_uri of
+            undefined -> {error, {missing_attribute, jwks_uri}};
+            _ -> Result
+          end;
         _ -> Result
-      end;
-    _ -> Result
+      end
   end.
 
 %% HELPER functions
-
-
 
 lookup_oauth_provider_config(OAuth2ProviderId) ->
   case application:get_env(rabbitmq_auth_backend_oauth2, oauth_providers) of
     undefined -> {error, oauth_providers_not_found};
     {ok, MapOfProviders} when is_map(MapOfProviders) ->
         case maps:get(OAuth2ProviderId, MapOfProviders, undefined) of
-          undefined -> {error, {oauth_provider_not_found, OAuth2ProviderId}};
+          undefined ->
+            rabbit_log:debug("MapOfProviders: ~p", [MapOfProviders]),
+            {error, {oauth_provider_not_found, OAuth2ProviderId}};
           Value -> Value
         end;
     _ ->  {error, invalid_oauth_provider_configuration}
