@@ -29,9 +29,9 @@ content_types_provided(ReqData, Context) ->
 
 resolve_oauth_provider_url(DefaultValue) ->
   case application:get_env(rabbitmq_management, oauth_provider_url) of
-    undefined -> case application:get_env(rabbitmq_management, oauth_provider_id) of
+    undefined -> case application:get_env(rabbitmq_auth_backend_oauth2, oauth_provider_id) of
                   undefined -> DefaultValue;
-                  Id -> case oauth2_client:get_oauth_provider(Id, [issuer]) of
+                  {ok, Id} -> case oauth2_client:get_oauth_provider(Id, [issuer]) of
                           {ok, OAuthProvider} -> OAuthProvider#oauth_provider.issuer;
                           {error, _} -> DefaultValue
                         end

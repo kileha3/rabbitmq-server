@@ -459,11 +459,6 @@ end}.
 {mapping, "management.oauth_provider_url", "rabbitmq_management.oauth_provider_url",
       [{datatype, string}]}.
 
-%% The id of the OIDC/OAuth2 provider.
-%% The oauth_provider_url is found in oauth2.oauth_providers.<oauth_provider_id>.issuer.
-%% If management.oauth_provider_url is present, it takes precedence over this setting.
-{mapping, "management.oauth_provider_id", "rabbitmq_management.oauth_provider_id",
-      [{datatype, string}]}.
 
 %% Your client application's identifier as registered with the OIDC/OAuth2
 {mapping, "management.oauth_client_id", "rabbitmq_management.oauth_client_id",
