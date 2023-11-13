@@ -94,7 +94,7 @@ do_update_oauth_provider_endpoints_configuration(OAuthProviderId, OAuthProvider)
   end,
   ModifiedList2 = case OAuthProvider#oauth_provider.jwks_uri of
     undefined ->  ModifiedList1;
-    JwksEndPoint -> [{jwks_url, JwksEndPoint} | ModifiedList1]
+    JwksEndPoint -> [{jwks_uri, JwksEndPoint} | ModifiedList1]
   end,
   ModifiedOAuthProviders = maps:put(OAuthProviderId, ModifiedList2, OAuthProviders),
   application:set_env(rabbitmq_auth_backend_oauth2, oauth_providers, ModifiedOAuthProviders),
@@ -181,11 +181,25 @@ filter_undefined_props(PropList) ->
       {Name, undefined} -> Acc ++ [Name];
       _ -> Acc
     end end, [], PropList).
-list_intersection(A, B) ->
-  lists:flatten([A -- B] ++ [B -- A]).
+
+intersection(S1, S2) -> intersection(S1, S2, []).
+is_element(H, [H|_])   -> true;
+is_element(H, [_|Set]) -> is_element(H, Set);
+is_element(_, [])      -> false.
+
+intersection([], _, S) -> S;
+intersection([H|T], S1, S) ->
+    case is_element(H,S1) of
+        true  -> intersection(T, S1, [H|S]);
+        false -> intersection(T, S1, S)
+    end.
 
 find_missing_attributes(#oauth_provider{} = OAuthProvider, RequiredAttributes) ->
-  list_intersection(filter_undefined_props(oauth_provider_to_proplists(OAuthProvider)), RequiredAttributes).
+  PropList = oauth_provider_to_proplists(OAuthProvider),
+  Filtered = filter_undefined_props(PropList),
+  List = intersection(Filtered, RequiredAttributes),
+  rabbit_log:debug("PropList: ~p Filtered: ~p List: ~p", [PropList, Filtered, List]),
+  List.
 
 %% HELPER functions
 

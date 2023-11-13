@@ -214,7 +214,7 @@
 }.
 
 {mapping,
- "auth_oauth2.oauth_providers.$name.jwks_url",
+ "auth_oauth2.oauth_providers.$name.jwks_uri",
  "rabbitmq_auth_backend_oauth2.oauth_providers",
  [{datatype, string}, {validators, ["uri", "https_uri"]}]
 }.
