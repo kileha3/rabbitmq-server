@@ -14,7 +14,6 @@ get_access_token(OAuth2ProviderId, Request) when is_binary(OAuth2ProviderId) ->
     [OAuth2ProviderId, Request#access_token_request.client_id]),
   case get_oauth_provider(OAuth2ProviderId, [token_endpoint]) of
     {error, _Error } = Error0 -> Error0;
-    {error, _Error, _Arg } = Error1 -> Error1;
     {ok, Provider} -> get_access_token(Provider, Request)
   end;
 
@@ -46,18 +45,8 @@ refresh_access_token(OAuthProvider, Request) ->
   Response = httpc:request(post, {URL, Header, Type, Body}, HTTPOptions, Options),
   parse_access_token_response(Response).
 
-append_paths(Path1, Path2) when is_binary(Path1) andalso is_binary(Path2) ->
-  <<Path1/binary, Path2/binary>>;
-append_paths(Path1, Path2) when is_binary(Path1) andalso is_list(Path2) ->
-  Path2Binary = list_to_binary(Path2),
-  <<Path1/binary, Path2Binary/binary>>;
-append_paths(Path1, Path2) when is_list(Path1) andalso is_binary(Path2) ->
-  Path1Binary = list_to_binary(Path1),
-  <<Path1Binary/binary, Path2/binary>>;
-append_paths(Path1, Path2) when is_list(Path1) andalso is_list(Path2) ->
-  Path1Binary = list_to_binary(Path1),
-  Path2Binary = list_to_binary(Path2),
-  <<Path1Binary/binary, Path2Binary/binary>>.
+append_paths(Path1, Path2) ->
+  erlang:iolist_to_binary([Path1, Path2]).
 
 -spec get_openid_configuration(uri_string:uri_string(), erlang:iodata() | <<>>, ssl:tls_option() | []) -> {ok, oauth_provider()} | {error, term()}.
 get_openid_configuration(IssuerURI, OpenIdConfigurationPath, TLSOptions) ->
@@ -139,7 +128,7 @@ get_oauth_provider(OAuth2ProviderId, ListOfRequiredAttributes) when is_binary(OA
   rabbit_log:debug("get_oauth_provider ~p with at least these attributes: ~p", [OAuth2ProviderId, ListOfRequiredAttributes]),
   case lookup_oauth_provider_config(OAuth2ProviderId) of
     {error, _} = Error0 ->
-    rabbit_log:warn("Failed to find oauth_provider ~p configuration due to ~p", [OAuth2ProviderId, Error0]),
+    rabbit_log:debug("Failed to find oauth_provider ~p configuration due to ~p", [OAuth2ProviderId, Error0]),
       Error0;
     Config ->
       rabbit_log:debug("Found oauth_provider configuration ~p", [Config]),

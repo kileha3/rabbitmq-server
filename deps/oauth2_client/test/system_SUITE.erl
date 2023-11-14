@@ -324,7 +324,7 @@ get_oauth_provider_with_token_endpoint(Config) ->
 		= ?config(get_oauth_provider_with_token_endpoint, Config),
 
  {ok, #oauth_provider{issuer = Issuer, token_endpoint = TokenEndPoint}} =
-		oauth2_client:get_oauth_provider_with_token_endpoint(?config(oauth_provider_id, Config)),
+		oauth2_client:get_oauth_provider(?config(oauth_provider_id, Config), [token_endpoint]),
 
 	?assertEqual(proplists:get_value(issuer, JsonPayload), binary:list_to_bin(Issuer)),
 	?assertEqual(proplists:get_value(token_endpoint, JsonPayload), binary:list_to_bin(TokenEndPoint)).
@@ -334,7 +334,7 @@ get_oauth_provider_with_token_endpoint_via_ssl(Config) ->
 		= ?config(get_oauth_provider_with_token_endpoint_via_ssl, Config),
 
  {ok, #oauth_provider{issuer = Issuer, token_endpoint = TokenEndPoint}} =
-		oauth2_client:get_oauth_provider_with_token_endpoint(?config(oauth_provider_id, Config)),
+		oauth2_client:get_oauth_provider(?config(oauth_provider_id, Config), [token_endpoint]),
 
 	?assertEqual(proplists:get_value(issuer, JsonPayload), binary:list_to_bin(Issuer)),
 	?assertEqual(proplists:get_value(token_endpoint, JsonPayload), binary:list_to_bin(TokenEndPoint)).
@@ -344,7 +344,7 @@ get_oauth_provider_with_jwks_uri(Config) ->
 		= ?config(get_oauth_provider_with_jwks_uri, Config),
 
 	{ok, #oauth_provider{issuer = Issuer, jwks_uri = JwksURI}} =
-		oauth2_client:get_oauth_provider_with_jwks_uri(?config(oauth_provider_id, Config)),
+		oauth2_client:get_oauth_provider(?config(oauth_provider_id, Config), [jwks_uri]),
 
 	?assertEqual(proplists:get_value(issuer, JsonPayload), Issuer),
 	?assertEqual(proplists:get_value(jwks_uri, JsonPayload),  JwksURI).
@@ -354,7 +354,7 @@ get_oauth_provider_with_jwks_uri_via_ssl(Config) ->
 		= ?config(get_oauth_provider_with_jwks_uri_via_ssl, Config),
 
 	{ok, #oauth_provider{issuer = Issuer, jwks_uri = JwksURI}} =
-		oauth2_client:get_oauth_provider_with_jwks_uri(?config(oauth_provider_id, Config)),
+		oauth2_client:get_oauth_provider(?config(oauth_provider_id, Config), [jwks_uri]),
 
 	?assertEqual(proplists:get_value(issuer, JsonPayload), Issuer),
 	?assertEqual(proplists:get_value(jwks_uri, JsonPayload),  JwksURI).
