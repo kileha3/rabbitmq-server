@@ -457,10 +457,7 @@ send_sasl_init(State, {plain, User, Pass}) ->
     Response = <<0:8, User/binary, 0:8, Pass/binary>>,
     Frame = #'v1_0.sasl_init'{mechanism = {symbol, <<"PLAIN">>},
                               initial_response = {binary, Response}},
-    send(Frame, 1, State);
-send_sasl_init(State, {plain, PlainCredentialsFunc}) ->
-    {User, Pass} = PlainCredentialsFunc(),
-    send_sasl_init(State, {plain, User, Pass}).
+    send(Frame, 1, State).
 
 send(Record, FrameType, #state{socket = Socket}) ->
     Encoded = amqp10_framing:encode_bin(Record),
