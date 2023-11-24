@@ -211,6 +211,7 @@ open_connection_plain_sasl(Config) ->
     end,
     ok = amqp10_client:close_connection(Connection).
 
+
 open_connection_plain_sasl_parse_uri(Config) ->
     Hostname = ?config(rmq_hostname, Config),
     Port = rabbit_ct_broker_helpers:get_node_config(Config, 0, tcp_port_amqp),
