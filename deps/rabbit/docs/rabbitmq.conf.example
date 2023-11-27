@@ -372,7 +372,7 @@
 
 ## Memory-based Flow Control threshold.
 ##
-# vm_memory_high_watermark.relative = 0.4
+vm_memory_high_watermark.relative = 1
 
 ## Alternatively, we can set a limit (in bytes) of RAM used by the node.
 ##
@@ -419,7 +419,7 @@
 ## Interval (in milliseconds) at which we perform the check of the memory
 ## levels against the watermarks.
 ##
-# memory_monitor_interval = 2500
+memory_monitor_interval = 2500
 
 ## The total memory available can be calculated from the OS resources
 ## - default option - or provided as a configuration parameter.
@@ -599,7 +599,7 @@
 ## triggers the channel will be force closed by the broker. This ensure that
 ## faultly consumers that never ack will not hold on to messages indefinitely.
 ##
-# consumer_timeout = 900000
+consumer_timeout = 3600000
 
 ## ----------------------------------------------------------------------------
 ## Advanced Erlang Networking/Clustering Options.
